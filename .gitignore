@@ -1,0 +1,16 @@
+# 环境变量 - 包含 API Key,切勿提交
+.env
+
+# Python 缓存
+__pycache__/
+*.pyc
+*.pyo
+
+# Chroma 向量数据库 (运行时自动生成)
+chroma_db/
+
+# 对话历史 (运行时自动生成)
+chat_history/
+
+# MD5 去重记录 (运行时自动生成)
+md5.text
