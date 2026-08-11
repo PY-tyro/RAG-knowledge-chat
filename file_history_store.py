@@ -1,3 +1,15 @@
+"""
+对话历史本地文件存储模块
+
+基于 LangChain BaseChatMessageHistory 实现的自定义对话历史持久化方案：
+- 将对话消息以 JSON 格式存储在本地文件中，一个 session_id 对应一个文件
+- 支持消息的添加（add_messages）、读取（messages）和清空（clear）
+- 使用 LangChain 官方的 message_to_dict / messages_from_dict 进行序列化和反序列化
+- 配合 LangChain RunnableWithMessageHistory 使用，实现对话记忆功能
+
+存储路径: ./chat_history/<session_id>
+"""
+
 from langchain_core.chat_history import BaseChatMessageHistory
 import os,json
 from typing import Sequence

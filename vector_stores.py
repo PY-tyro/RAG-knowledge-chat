@@ -1,3 +1,18 @@
+"""
+向量存储服务模块
+
+封装 Chroma 向量数据库的初始化与检索操作，是 RAG 流程的检索基础：
+- VectorStoreService 类：接收 Embedding 实例，初始化 Chroma 向量存储
+- get_retriever()：返回 LangChain 标准的检索器对象，可直接接入 Chain
+- 检索器配置了 k 值（每次返回的文档数量），通过 config_data.similarity_threshold 控制
+- 与 knowledge_base.py 共用同一个 Chroma 持久化目录和集合名
+
+使用示例:
+    from langchain_community.embeddings import DashScopeEmbeddings
+    retriever = VectorStoreService(DashScopeEmbeddings(model="text-embedding-v4")).get_retriever()
+    docs = retriever.invoke("查询内容")
+"""
+
 from langchain_chroma import Chroma
 import config_data as config
 

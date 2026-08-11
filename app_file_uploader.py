@@ -1,7 +1,13 @@
 """
-基于streamlit完成WEB网页上传服务
+知识库文件上传界面
 
-Streamlit:当WEB页面元素发生变化,则代码重新执行一遍
+基于 Streamlit 构建的知识库管理 Web 应用，提供文档上传入库功能：
+- 支持上传 TXT 文本文件，读取内容后调用 KnowledgeBaseService 进行向量化入库
+- 展示上传文件的基本信息（文件名、格式、大小）
+- 入库前通过 MD5 去重检测，避免重复处理相同内容
+- Streamlit 特性：页面元素变化时，代码会重新执行一遍
+
+运行方式: streamlit run app_file_uploader.py
 """
 
 import streamlit as st

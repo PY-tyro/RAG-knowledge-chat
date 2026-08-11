@@ -1,3 +1,17 @@
+"""
+RAG（检索增强生成）服务模块
+
+本模块是智能客服的核心，封装了完整的 RAG 流程：
+- 向量检索：通过 VectorStoreService 从 Chroma 中召回与用户问题最相关的文档片段
+- Prompt 构建：使用 ChatPromptTemplate 将系统提示、参考资料、对话历史和用户问题组合
+- LLM 调用：通过阿里云通义千问（qwen3-max）生成专业回答
+- 对话记忆：使用 RunnableWithMessageHistory 结合 FileChatMessageHistory 实现多轮对话
+- 链式编排：基于 LangChain LCEL（LangChain Expression Language）构建处理链
+  Pipeline: 用户输入 → 向量检索 → 格式化文档 → 拼接 Prompt → LLM 生成 → 字符串输出
+
+运行方式: python rag.py（内置测试用例，直接调用 invoke 测试）
+"""
+
 from vector_stores import VectorStoreService
 from langchain_community.embeddings import DashScopeEmbeddings
 from dotenv import load_dotenv

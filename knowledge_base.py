@@ -1,5 +1,15 @@
 """
-知识库
+知识库管理服务模块
+
+提供文档向量化入库的核心功能，主要包含：
+- KnowledgeBaseService 类：封装 Chroma 向量库和文本分割器的初始化与操作
+- upload_by_str()：将文本字符串向量化后存入 Chroma 数据库，支持元数据记录
+- MD5 去重机制：通过 check_md5() 和 save_md5() 防止相同内容重复入库
+- 文本分割：使用 RecursiveCharacterTextSplitter 按分隔符递归分割长文本
+- 向量化：通过阿里云 DashScope Embeddings（text-embedding-v4）生成文本向量
+
+MD5 记录文件: ./md5.text
+向量数据库目录: ./chroma_db/
 """
 
 import os

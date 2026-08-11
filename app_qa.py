@@ -1,3 +1,15 @@
+"""
+智能客服问答界面
+
+基于 Streamlit 构建的聊天式 Web 应用，提供智能客服对话功能：
+- 加载 RAG 服务（检索增强生成），结合知识库和 LLM 回答用户问题
+- 支持流式输出，逐字显示 AI 回答内容
+- 基于 session_id 持久化对话历史，刷新页面后仍可继续对话
+- 使用 LangChain RunnableWithMessageHistory 管理消息记录
+
+运行方式: streamlit run app_qa.py
+"""
+
 import streamlit as st
 import time
 from rag import RagService
