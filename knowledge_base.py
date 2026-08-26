@@ -13,6 +13,7 @@ MD5 记录文件: ./md5.text
 """
 
 import os
+import logging
 import config_data as config
 import hashlib
 from langchain_chroma import Chroma
@@ -21,6 +22,8 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from datetime import datetime
 from dotenv import load_dotenv
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 def check_md5(md5_str:str):
     """检查传入的md5字符串是否已经被处理过了
@@ -57,7 +60,7 @@ def get_string_md5(input_str: str,encoding="utf-8"):
 
     return md5_hex
 
-    
+
 
 class KnowledgeBaseService(object):
     def __init__(self):
@@ -66,8 +69,9 @@ class KnowledgeBaseService(object):
 
         self.chroma = Chroma(
             collection_name=config.collection_name,  # 数据库表名
-            embedding_function=DashScopeEmbeddings(model="text-embedding-v4"),
+            embedding_function=DashScopeEmbeddings(model=config.embedding_model_name),
             persist_directory=config.persist_directory, # 数据库本地存储文件夹
+            collection_configuration=config.chroma_collection_configuration,  # 与 vector_stores.py 用同一余弦配置
         )  # 向量存储的实例Chroma向量库对象
 
 
@@ -79,35 +83,60 @@ class KnowledgeBaseService(object):
         )     # 文本分割器的对象
 
     def upload_by_str(self,data:str,filename):
-            """将传入的字符串,进行向量化,存入向量数据库中"""
-            # 先得到传入字符串的md5值
-            md5_hex = get_string_md5(data)
+        """将传入的字符串,进行向量化,存入向量数据库中"""
+        # 先得到传入字符串的md5值
+        md5_hex = get_string_md5(data)
 
-            if check_md5(md5_hex):
-                return "[跳过]内容已经存在知识库中"
+        if check_md5(md5_hex):
+            return "[跳过]内容已经存在知识库中"
 
-            if len(data) > config.max_split_char_number:
-                knowledge_chunks:list[str] = self.spliter.split_text(data)
-            else:
-                knowledge_chunks = [data]
+        if len(data) > config.max_split_char_number:
+            knowledge_chunks:list[str] = self.spliter.split_text(data)
+        else:
+            knowledge_chunks = [data]
 
-            metadata = {
-                "source":filename,
-                "create_time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                "operator":"小曹"
-            }
+        metadata = {
+            "source":filename,
+            "create_time":datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "operator":config.operator
+        }
 
-            
 
-            self.chroma.add_texts(    # 内容加载到向量库中 
+
+        try:
+            # 更新场景：若该文件名之前已入库（内容有改动），先删除旧片段，避免旧数据残留
+            self.chroma.delete(where={"source": filename})
+            self.chroma.add_texts(    # 内容加载到向量库中(会调用 embedding API，可能因 Key 无效/网络/余额不足失败)
                 # iterable -> list \ tuple
                 knowledge_chunks,
                 metadatas = [metadata for _ in knowledge_chunks]
             )
-            # 
-            save_md5(md5_hex)
+        except Exception as e:   # 捕获 embedding/网络/API 异常，返回友好提示而不是让页面崩溃
+            logger.exception("入库失败: %s", filename)
+            return f"[失败]内容载入向量库失败：{e}"
 
-            return "[成功]内容已经成功载入向量库"
+        save_md5(md5_hex)
+
+        return "[成功]内容已经成功载入向量库"
+
+    def list_documents(self):
+        """列出知识库中已有的文档（按 source 去重，返回 {文件名: 片段数量}）"""
+        result = self.chroma.get(include=["metadatas"])
+        metadatas = result.get("metadatas") or []
+        sources = {}
+        for meta in metadatas:
+            src = meta.get("source", "未知")
+            sources[src] = sources.get(src, 0) + 1
+        return sources
+
+    def delete_by_source(self, source: str):
+        """按文件名删除知识库中的文档片段"""
+        try:
+            self.chroma.delete(where={"source": source})
+            return f"[成功]已删除文档：{source}"
+        except Exception as e:
+            logger.exception("删除失败: %s", source)
+            return f"[失败]删除文档失败：{e}"
 
 if __name__ == '__main__':
     service = KnowledgeBaseService()

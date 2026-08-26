@@ -13,6 +13,9 @@
 import streamlit as st
 from knowledge_base import KnowledgeBaseService
 import time
+from log_config import setup_logging
+
+setup_logging()
 
 # 添加网页标题
 st.title("知识库更新服务")
@@ -41,13 +44,39 @@ if uploader_file is not None:
     st.write(f"格式: {file_type} | 大小: {file_size:.2f} KB")
 
     # 获取文件里的内容 -> getvalue ->bytes ->decode('utf-8')
-    text = uploader_file.getvalue().decode("utf-8")
+    try:
+        text = uploader_file.getvalue().decode("utf-8")
+    except UnicodeDecodeError:
+        st.error("文件编码不是 UTF-8,请另存为 UTF-8 编码后再上传")
+        st.stop()
 
 
     with st.spinner("载入知识库中。。。"):      # 在spinner内的代码执行过程中,会有一个转圈动画
         time.sleep(1)       # 必须导入time模块
         result = st.session_state["service"].upload_by_str(text,file_name)
         st.write(result)
+
+# ---- 知识库管理：查看 + 删除 ----
+st.divider()
+st.subheader("知识库已有文档")
+
+# 显示删除结果（放在最前面，确保无论列表是否为空都能展示）
+if "delete_msg" in st.session_state:
+    st.success(st.session_state["delete_msg"])
+    del st.session_state["delete_msg"]
+
+docs = st.session_state["service"].list_documents()
+if not docs:
+    st.info("知识库为空，请先上传文档")
+else:
+    for src, count in docs.items():
+        st.write(f"- {src}（{count} 个片段）")
+
+    st.subheader("删除文档")
+    source_to_delete = st.selectbox("选择要删除的文档", list(docs.keys()))
+    if st.button("删除该文档"):
+        st.session_state["delete_msg"] = st.session_state["service"].delete_by_source(source_to_delete)
+        st.rerun()
     
 
 

@@ -58,5 +58,5 @@ class FileChatMessageHistory(BaseChatMessageHistory):
         except FileNotFoundError:
              return []
     def clear(self) -> None:
-         with open(self.file_path,"w",encoding="utf-8 ") as f:
+         with open(self.file_path,"w",encoding="utf-8") as f:
               json.dump([],f)

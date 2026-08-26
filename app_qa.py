@@ -11,13 +11,20 @@
 """
 
 import streamlit as st
-import time
+import uuid
 from rag import RagService
-import config_data as config
+from log_config import setup_logging
+from security import detect_injection
+
+setup_logging()
 
 # 标题
 st.title("智能客服")
 st.divider()    # 分隔符
+
+# 每个浏览器会话生成唯一 session_id，实现多用户对话历史隔离
+if "session_id" not in st.session_state:
+    st.session_state["session_id"] = uuid.uuid4().hex
 
 if "message" not in st.session_state:
     st.session_state["message"] = [{"role":"assistant","content":"你好,有什么可以帮助你?"}]
@@ -31,31 +38,44 @@ for message in st.session_state["message"]:
 prompt = st.chat_input()
 
 if prompt:
-
     # 在页面输出用户的提问
     st.chat_message("user").write(prompt)
     st.session_state["message"].append({"role":"user","content":prompt})
 
-    ai_res_list = []
-    with st.spinner("AI思考中..."):
-        # 直接输出
-        # res = st.session_state["rag"].chain.invoke({"input":prompt},config.session_config)
-        # st.chat_message("assistant").write(res)
-        # st.session_state["message"].append({"role":"assistant","content":res})
+    # Prompt 注入防护：命中可疑关键词时不调用 LLM，直接拦截并友好提示
+    injection_hit = detect_injection(prompt)
+    if injection_hit:
+        st.warning(f"检测到疑似提示词注入（命中「{injection_hit}」），已拦截。")
+        safe_reply = "抱歉，我无法处理这类请求，请正常提问。"
+        st.chat_message("assistant").write(safe_reply)
+        st.session_state["message"].append({"role": "assistant", "content": safe_reply})
+    else:
+        ai_res_list = []
 
-        res_stream = st.session_state["rag"].chain.stream({"input":prompt},config.session_config)
-        # yield 迭代器
-
-        def capture(generator,cache_list):
+        def capture(generator, cache_list):
+            """边流式输出边收集片段，最后拼接成完整回答存入历史"""
             for chunk in generator:
                 cache_list.append(chunk)
                 yield chunk
 
-        # st.chat_message("assistant").write(res_stream)
-        # st.session_state["message"].append({"role":"assistant","content":res_stream}) # content 要的是字符串stream输出的不符合条件,存储会失败 而且这个流已经输出了,里面没有内容了
-        
-        st.chat_message("assistant").write_stream(capture(res_stream,ai_res_list))
-        st.session_state["message"].append({"role":"assistant","content":"".join(ai_res_list)})
+        with st.spinner("AI思考中..."):
+            try:
+                session_config = {"configurable": {"session_id": st.session_state["session_id"]}}
+                res_stream = st.session_state["rag"].chain.stream({"input": prompt}, session_config)
+                st.chat_message("assistant").write_stream(capture(res_stream, ai_res_list))
+            except Exception as e:
+                # LLM 调用失败（Key 无效 / 网络 / 余额不足等）时，友好提示而不是抛 traceback
+                st.error(f"AI 回答失败：{e}")
+            else:
+                # 仅在生成成功时才把回答写入历史，避免保存残缺/错误内容
+                st.session_state["message"].append({"role": "assistant", "content": "".join(ai_res_list)})
+                # 展示本次回答检索到的知识库来源（文件名），增强回答可信度
+                try:
+                    sources = st.session_state["rag"].get_sources(prompt)
+                except Exception:
+                    sources = []
+                if sources:
+                    st.caption("参考来源：" + "、".join(sources))
 
 # list = ["a","b","c"]     "".join(list) ->abc
 # list = ["a","b","c"]     ",".join(list) ->a,b,c

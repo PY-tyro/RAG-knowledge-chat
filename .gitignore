@@ -14,3 +14,7 @@ chat_history/
 
 # MD5 去重记录 (运行时自动生成)
 md5.text
+
+# RAGAS 评测结果 (运行 ragas_eval.py 自动生成)
+eval_results.csv
+eval_summary.json
