@@ -53,6 +53,7 @@ from langchain_community.embeddings import DashScopeEmbeddings
 from ragas import SingleTurnSample, EvaluationDataset, evaluate
 from ragas.llms import LangchainLLMWrapper
 from ragas.embeddings import LangchainEmbeddingsWrapper
+from ragas.run_config import RunConfig
 
 # ---- 兼容性修复 2：用旧版（legacy）指标，而不是新版 collections ----
 # 新版 ragas.metrics.collections 只接受 OpenAI 的 InstructorLLM，会拒绝我们用
@@ -125,7 +126,11 @@ def main():
     ]
 
     print(f"开始评测，共 {len(samples)} 条样本 ...")
-    result = evaluate(dataset, metrics=metrics)
+    # 默认单任务超时 180s，对 qwen3-max 偏短（faithfulness 的 NLI 步骤要一次性生成几十条陈述，
+    # context_precision/context_recall 要反复调 LLM），会触发 TimeoutError 导致分数记成 NaN。
+    # 这里把超时放宽到 600s。
+    run_config = RunConfig(timeout=600)
+    result = evaluate(dataset, metrics=metrics, run_config=run_config)
 
     df = result.to_pandas()
     score_cols = [c for c in df.columns if c not in ("user_input", "retrieved_contexts", "response", "reference")]
